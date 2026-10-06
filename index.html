@@ -1,0 +1,584 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faction Tracker</title>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #111827;
+            color: white;
+        }
+
+        header {
+            background: #1f2937;
+            padding: 22px;
+            text-align: center;
+            border-bottom: 1px solid #374151;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 30px;
+        }
+
+        header p {
+            margin: 7px 0 0;
+            color: #9ca3af;
+        }
+
+        .container {
+            width: min(1100px, 92%);
+            margin: 30px auto;
+        }
+
+        .top-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+        }
+
+        .card {
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 14px;
+            padding: 22px;
+        }
+
+        .card h2 {
+            margin-top: 0;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border: 1px solid #4b5563;
+            background: #111827;
+            color: white;
+            font-size: 15px;
+        }
+
+        button {
+            border: none;
+            border-radius: 8px;
+            padding: 10px 14px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.15s;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            opacity: 0.9;
+        }
+
+        .add-button {
+            background: #2563eb;
+            color: white;
+            width: 100%;
+        }
+
+        .faction {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            background: #111827;
+            border: 1px solid #374151;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .faction-info {
+            flex: 1;
+        }
+
+        .faction-name {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .points {
+            color: #9ca3af;
+            margin-top: 4px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .plus {
+            background: #16a34a;
+            color: white;
+        }
+
+        .minus {
+            background: #dc2626;
+            color: white;
+        }
+
+        .rename {
+            background: #4b5563;
+            color: white;
+        }
+
+        .delete {
+            background: #7f1d1d;
+            color: white;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 450px;
+        }
+
+        .total {
+            text-align: center;
+            font-size: 18px;
+            color: #d1d5db;
+            margin-top: 10px;
+        }
+
+        .empty {
+            text-align: center;
+            color: #9ca3af;
+            padding: 30px;
+        }
+
+        @media (max-width: 800px) {
+            .top-section {
+                grid-template-columns: 1fr;
+            }
+
+            .faction {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .controls {
+                justify-content: flex-start;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Faction Tracker</h1>
+    <p>Track the points of every faction</p>
+</header>
+
+<div class="container">
+
+    <div class="top-section">
+
+        <!-- Faction List -->
+        <div class="card">
+            <h2>Factions</h2>
+
+            <input
+                id="factionName"
+                type="text"
+                placeholder="Enter faction name..."
+            >
+
+            <input
+                id="startingPoints"
+                type="number"
+                min="0"
+                placeholder="Starting points (optional)"
+            >
+
+            <button class="add-button" onclick="addFaction()">
+                + Add Faction
+            </button>
+
+            <br><br>
+
+            <div id="factionList"></div>
+        </div>
+
+        <!-- Pie Chart -->
+        <div class="card">
+            <h2>Faction Distribution</h2>
+
+            <div class="chart-container">
+                <canvas id="factionChart"></canvas>
+            </div>
+
+            <div class="total">
+                Total Points: <strong id="totalPoints">0</strong>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+    // Load saved factions or start with an empty list
+    let factions = JSON.parse(localStorage.getItem("factions")) || [];
+
+    let chart;
+
+    // Save factions to browser
+    function saveFactions() {
+        localStorage.setItem("factions", JSON.stringify(factions));
+    }
+
+    // Add a new faction
+    function addFaction() {
+
+        const nameInput = document.getElementById("factionName");
+        const pointsInput = document.getElementById("startingPoints");
+
+        const name = nameInput.value.trim();
+
+        if (name === "") {
+            alert("Please enter a faction name.");
+            return;
+        }
+
+        let points = Number(pointsInput.value);
+
+        if (isNaN(points) || points < 0) {
+            points = 0;
+        }
+
+        // Prevent duplicate names
+        if (
+            factions.some(
+                faction => faction.name.toLowerCase() === name.toLowerCase()
+            )
+        ) {
+            alert("A faction with that name already exists.");
+            return;
+        }
+
+        factions.push({
+            id: Date.now(),
+            name: name,
+            points: points
+        });
+
+        saveFactions();
+
+        nameInput.value = "";
+        pointsInput.value = "";
+
+        render();
+    }
+
+    // Change faction points
+    function changePoints(id, amount) {
+
+        const faction = factions.find(f => f.id === id);
+
+        if (!faction) return;
+
+        faction.points += amount;
+
+        // Don't allow negative points
+        if (faction.points < 0) {
+            faction.points = 0;
+        }
+
+        saveFactions();
+        render();
+    }
+
+    // Rename faction
+    function renameFaction(id) {
+
+        const faction = factions.find(f => f.id === id);
+
+        if (!faction) return;
+
+        const newName = prompt(
+            "Enter the new faction name:",
+            faction.name
+        );
+
+        if (newName === null) return;
+
+        const trimmedName = newName.trim();
+
+        if (trimmedName === "") {
+            alert("Faction name cannot be empty.");
+            return;
+        }
+
+        if (
+            factions.some(
+                f =>
+                    f.id !== id &&
+                    f.name.toLowerCase() === trimmedName.toLowerCase()
+            )
+        ) {
+            alert("A faction with that name already exists.");
+            return;
+        }
+
+        faction.name = trimmedName;
+
+        saveFactions();
+        render();
+    }
+
+    // Delete faction
+    function deleteFaction(id) {
+
+        const faction = factions.find(f => f.id === id);
+
+        if (!faction) return;
+
+        const confirmed = confirm(
+            `Delete "${faction.name}"?`
+        );
+
+        if (!confirmed) return;
+
+        factions = factions.filter(f => f.id !== id);
+
+        saveFactions();
+        render();
+    }
+
+    // Render faction list
+    function renderFactions() {
+
+        const list = document.getElementById("factionList");
+
+        list.innerHTML = "";
+
+        if (factions.length === 0) {
+
+            list.innerHTML = `
+                <div class="empty">
+                    No factions yet.<br>
+                    Add one above to get started.
+                </div>
+            `;
+
+            return;
+        }
+
+        factions.forEach(faction => {
+
+            const factionElement = document.createElement("div");
+
+            factionElement.className = "faction";
+
+            factionElement.innerHTML = `
+                <div class="faction-info">
+
+                    <div class="faction-name">
+                        ${escapeHTML(faction.name)}
+                    </div>
+
+                    <div class="points">
+                        ${faction.points.toLocaleString()} points
+                    </div>
+
+                </div>
+
+                <div class="controls">
+
+                    <button
+                        class="minus"
+                        onclick="changePoints(${faction.id}, -1)"
+                    >
+                        −1
+                    </button>
+
+                    <button
+                        class="plus"
+                        onclick="changePoints(${faction.id}, 1)"
+                    >
+                        +1
+                    </button>
+
+                    <button
+                        class="minus"
+                        onclick="changePoints(${faction.id}, -10)"
+                    >
+                        −10
+                    </button>
+
+                    <button
+                        class="plus"
+                        onclick="changePoints(${faction.id}, 10)"
+                    >
+                        +10
+                    </button>
+
+                    <button
+                        class="rename"
+                        onclick="renameFaction(${faction.id})"
+                    >
+                        Rename
+                    </button>
+
+                    <button
+                        class="delete"
+                        onclick="deleteFaction(${faction.id})"
+                    >
+                        Delete
+                    </button>
+
+                </div>
+            `;
+
+            list.appendChild(factionElement);
+        });
+    }
+
+    // Update pie chart
+    function updateChart() {
+
+        const canvas = document.getElementById("factionChart");
+
+        const labels = factions.map(f => f.name);
+        const values = factions.map(f => f.points);
+
+        const total = factions.reduce(
+            (sum, faction) => sum + faction.points,
+            0
+        );
+
+        document.getElementById("totalPoints").textContent =
+            total.toLocaleString();
+
+        if (chart) {
+            chart.destroy();
+        }
+
+        // If there are no points, don't create an empty chart
+        if (total === 0 || factions.length === 0) {
+
+            chart = new Chart(canvas, {
+                type: "pie",
+                data: {
+                    labels: ["No points yet"],
+                    datasets: [{
+                        data: [1]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+
+            return;
+        }
+
+        chart = new Chart(canvas, {
+
+            type: "pie",
+
+            data: {
+                labels: labels,
+
+                datasets: [{
+                    data: values
+                }]
+            },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                plugins: {
+
+                    legend: {
+                        position: "bottom"
+                    },
+
+                    tooltip: {
+
+                        callbacks: {
+
+                            label: function(context) {
+
+                                const value = context.raw;
+
+                                const percentage =
+                                    (value / total) * 100;
+
+                                return `${context.label}: ${value.toLocaleString()} points (${percentage.toFixed(1)}%)`;
+                            }
+
+                        }
+
+                    }
+
+                }
+
+            }
+
+        });
+
+    }
+
+    // Update everything
+    function render() {
+        renderFactions();
+        updateChart();
+    }
+
+    // Prevent HTML injection through faction names
+    function escapeHTML(text) {
+
+        const div = document.createElement("div");
+
+        div.textContent = text;
+
+        return div.innerHTML;
+    }
+
+    // Press Enter to add a faction
+    document
+        .getElementById("factionName")
+        .addEventListener("keydown", function(event) {
+
+            if (event.key === "Enter") {
+                addFaction();
+            }
+
+        });
+
+    // Initial load
+    render();
+
+</script>
+
+</body>
+</html>
+```
